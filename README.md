@@ -50,6 +50,6 @@ python app.py
 
 ---
 
-🤝 Contributing:
+## 🤝 Contributing:
 
 Contributions are welcome! Feel free to fork this repo, open issues, and submit PRs.
