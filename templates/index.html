@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Send Love</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      height: 100vh;
+      background: linear-gradient(180deg, #6ef562, #21d4fd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: 'Quicksand', sans-serif;
+    }
+
+    .form-wrapper {
+      background:#fff;
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 300px;
+      text-align: center;
+      animation: fadeInUp 1s ease;
+    }
+
+    .form-wrapper h2 {
+      font-family: 'Pacifico', cursive;
+      color: #2ed228;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .form-wrapper input {
+      padding: 14px;
+      border:solid 4px green ;
+      border-radius: 12px;
+      font-size: 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.5);
+      color: #333;
+      transition: all 0.3s ease;
+      animation: glow 3s infinite linear;
+    }
+
+    @keyframes glow {
+      20% {
+        border: solid 4px #40eb54;
+      }
+      40% {
+        border: solid 4px #55bae2;
+      }
+      60% {
+        border: solid 4px #245ee7;
+      }
+      80% {
+        border: solid 4px #eef359;
+      } 
+      100% {
+          border: solid 4px #d8eabe;
+        }
+    }
+
+    .form-wrapper input::placeholder {
+      color: #666;
+    }
+
+    .form-wrapper input:focus {
+      outline: none;
+      
+      transform: scale(1.05);
+    } 
+
+    .form-wrapper button {
+      background: #ff4eb5;
+      color: #fff;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      /* transition: background 0.3s ease, transform 0.2s; */
+      animation: twerk 0.3s infinite ease-in-out;
+    }
+
+    @keyframes twerk {
+        0% {
+            rotate: 5deg;
+        }
+        50% {
+            rotate:-10deg;
+        }
+        
+    }
+
+    .form-wrapper button:hover {
+      background: #ff82ca;
+      transform: scale(1.05);
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Floating hearts */
+    .heart {
+      width: 20px;
+      height: 20px;
+      position: absolute;
+      background: pink;
+      transform: rotate(45deg);
+      animation: floatUp 5s linear infinite;
+      opacity: 0.6;
+    }
+
+    .heart::before,
+    .heart::after {
+      content: '';
+      width: 20px;
+      height: 20px;
+      background: pink;
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .heart::before {
+      top: -10px;
+      left: 0;
+    }
+
+    .heart::after {
+      left: -10px;
+      top: 0;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(0) rotate(45deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-100vh) rotate(45deg);
+        opacity: 0;
+      }
+    }
+    .google-login-wrapper {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+    }
+
+    .box {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #user-info {
+      margin-top: 20px;
+    }
+
+    #user-pic {
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="google-login-wrapper">
+      <div id="g_id_onload"
+           data-client_id="246934860673-cd9vo0shq1jrm7p4b1eahcqm96fg5hm2.apps.googleusercontent.com"
+           data-context="signin"
+           data-callback="handleCredentialResponse"
+           data-auto_prompt="false">
+      </div>
+      <div id="signout" style="display: none;">
+        <button onclick="signOUT()" style="background: #000000;width:120px;height:50px;font-size:large;z-index: 10px; color: white; border: none; padding: 10px; border-radius: 12px; cursor: pointer;">Sign Out</button>
+      </div>
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="outline"
+           data-text="sign_in_with"
+           data-shape="rectangular"
+           data-logo_alignment="left">
+      </div>
+    </div>
+  
+    
+  </div>
+  <form class="form-wrapper" action="/submit" method="POST" onsubmit="return checkLoginStatus()">
+    <h2>💌 Ask For Prom</h2>
+    <div class="container">
+      <div class="box">
+       
+        <div id="user-info" >
+          <img id="user-pic" src="{{ url_for( 'static' , filename='./user.png') }}" alt="User Picture" />
+          <p id="user-name">BILLU</p>
+        </div>
+      </div>
+    </div>
+    <input type="text" name="name" placeholder="Your Name" required value="NONE" style="display: none;"/>
+    <input type="text" name="roll_no" placeholder="Your Roll No" value="NONE" required style="display: none" />
+    <input type="text" name="prom's_roll_no" placeholder="Prom's Roll No" required />
+    <button type="submit">Send Now 💖</button>
+  </form>
+
+  <script>
+    // Floating hearts generator
+    function createHeart() {
+      const heart = document.createElement("div");
+      heart.classList.add("heart");
+      heart.style.left = Math.random() * 100 + "vw";
+      heart.style.animationDuration = 1 + Math.random() * 2 + "s";
+      document.body.appendChild(heart);
+      setTimeout(() => {
+        heart.remove();
+      }, 5000);
+    }
+
+    setInterval(createHeart, 300);
+  </script>
+
+<script>
+
+function updateUI(){
+    if(localStorage.getItem('user')){
+      const user = JSON.parse(localStorage.getItem('user'));
+      document.getElementById("user-pic").src = user.picture;
+      document.getElementById("user-name").textContent = user.name;
+      document.querySelector("input[name='name']").value = user.name;
+      document.querySelector("input[name='roll_no']").value = user.email.split("@")[0]; // Assuming roll number is the part before '@'
+      // hide google login button
+      document.querySelector(".g_id_signin").style.display = "none";
+      document.getElementById("signout").style.display = "block";
+    }};
+
+
+  function handleCredentialResponse(response) {
+    const decoded = jwt_decode(response.credential);
+    // If user email has "students.iitmandi.ac.in" domain, allow login
+    if (!decoded.email.endsWith("@students.iitmandi.ac.in")) {
+      alert("Please use your IIT Mandi email address to login.");
+      return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(decoded));
+    document.getElementById("user-pic").src = decoded.picture;
+    document.getElementById("user-name").textContent = decoded.name;
+  
+    document.getElementById("user-info").style.display = "block";
+    document.querySelector("input[name='name']").value = decoded.name;
+    document.querySelector("input[name='roll_no']").value = decoded.email.split("@")[0]; // Assuming roll number is the part before '@'
+    updateUI();
+  }
+
+  function signOUT() {
+    localStorage.removeItem("user");
+    // refresh page
+    window.location.reload();
+  }
+
+  function checkLoginStatus() {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      alert('Please log in first!');
+      return false; // Prevent form submission
+    }
+    // Disable submit button on form submit and 
+    alert('We are sending your prom invite! Please wait for confirmation.');
+    return true; // Allow form submission
+  }
+  updateUI();
+
+</script>
+</body>
+</html>
