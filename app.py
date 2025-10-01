@@ -5,10 +5,14 @@ import dotenv
 import uuid
 import csv
 import random
+import crud
+from models import User
+from db import SessionLocal
 from flask_cors import CORS
 
 dotenv.load_dotenv()
 app = Flask(__name__)
+
 CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
 app.secret_key = os.urandom(24)  # Secret key for session management
 
@@ -19,12 +23,11 @@ app.config['MAIL_USERNAME'] = os.getenv("DEL_EMAIL")
 app.config['MAIL_PASSWORD'] = os.getenv("PASSWORD")
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
-
 mail = Mail(app)
 invitations = {}
 
 # Load student list from CSV
-STUDENT_LIST_PATH = "./data.csv"
+STUDENT_LIST_PATH = "./data1.csv"
 students = []
 
 # DISABLED ROLL NUMBERS ----->
@@ -78,11 +81,19 @@ def submit():
     subject = "🎉 Hey !! Wanna Go Prom ?"
     REC_EMAIL = rec_roll + '@students.iitmandi.ac.in'
     token = str(uuid.uuid4())
+    db = SessionLocal()
+    try:
+      user = db.query(User).filter_by(sender_name=name, sender_roll=roll_no).first()
+      if not user:
+        crud.create_user(db, sender_name=name, sender_roll=roll_no, recipient_roll=rec_roll)
+    finally:
+     db.close()
 
     invitations[token] = {
         'sender_roll': roll_no,
         'sender_name': name,
-        'recipient_roll': rec_roll
+        'recipient_roll': rec_roll,
+        'status': 'pending',
     }
 
     viewer_link = url_for('viewer', token=token, _external=True)
@@ -230,9 +241,9 @@ def submit_guess():
     recipient_roll = invitation['recipient_roll']
 
     sender_email = sender_roll + '@students.iitmandi.ac.in'
-
+ 
     if selected_roll == sender_roll:
-        subject = "🎉 It's a PROM MATCH!"
+        subject = "🎉 It's a PROM MATCH! || Now go ahead... hit them up on Whatsapp and see where this goes"
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 30px;">
