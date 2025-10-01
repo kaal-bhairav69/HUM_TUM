@@ -26,23 +26,28 @@ app.config['MAIL_USE_SSL'] = False
 mail = Mail(app)
 invitations = {}
 
-# Load student list from CSV
-STUDENT_LIST_PATH = "./data1.csv"
-students = []
-
 # DISABLED ROLL NUMBERS ----->
 disabledRollNumber = []
 
-with open(STUDENT_LIST_PATH, newline='', encoding="utf-8", errors="ignore") as csvfile:
-    reader = csv.DictReader(csvfile)
-    reader.fieldnames = [field.strip() for field in reader.fieldnames]
-    for row in reader:
-        row = {k.strip(): v.strip() for k, v in row.items()}
-        students.append({
-            'name': row['Name'].upper(),
-            'roll': row['Roll No.'].strip().lower(),
-            'gender': row.get('Gender', '').strip().lower()
-        })
+import pandas as pd
+
+STUDENT_LIST_PATH = "List of Students (IIT Mandi)_new.xlsx"   # your Excel file
+
+students = []
+
+# Read Excel file
+df = pd.read_excel(STUDENT_LIST_PATH, engine="openpyxl")
+
+# Normalize column names
+df.columns = [col.strip() for col in df.columns]
+
+# Iterate over rows
+for _, row in df.iterrows():
+    students.append({
+        "name": str(row["Name"]).strip().upper(),
+        "roll": str(row["Employee No"]).strip().lower(),
+        "gender": str(row.get("Gender", "")).strip().lower()
+    })
 
 @app.route("/")
 def index():
@@ -292,4 +297,3 @@ def submit_guess():
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
-
