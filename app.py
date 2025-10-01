@@ -33,7 +33,7 @@ students = []
 # DISABLED ROLL NUMBERS ----->
 disabledRollNumber = []
 
-with open(STUDENT_LIST_PATH, newline='') as csvfile:
+with open(STUDENT_LIST_PATH, newline='', encoding="utf-8", errors="ignore") as csvfile:
     reader = csv.DictReader(csvfile)
     reader.fieldnames = [field.strip() for field in reader.fieldnames]
     for row in reader:
@@ -292,3 +292,4 @@ def submit_guess():
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
+
