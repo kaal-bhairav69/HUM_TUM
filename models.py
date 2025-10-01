@@ -10,3 +10,12 @@ class User(Base):
     sender_name = Column(String,nullable=False)
     sender_roll = Column(String,nullable=False)
     recipient_roll = Column(String,nullable=False)
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    token = Column(String, primary_key=True, index=True)
+    sender_roll = Column(String, nullable=False)
+    sender_name = Column(String, nullable=False)
+    recipient_roll = Column(String, nullable=False)
+    status = Column(String, default="pending")
