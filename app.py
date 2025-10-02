@@ -3,15 +3,12 @@ from flask_mail import Mail, Message
 import os
 import dotenv
 import uuid
+import csv
 import random
-import crud
-from models import User,Invitation
-from db import SessionLocal
 from flask_cors import CORS
 
 dotenv.load_dotenv()
 app = Flask(__name__)
-
 CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
 app.secret_key = os.urandom(24)  # Secret key for session management
 
@@ -22,30 +19,27 @@ app.config['MAIL_USERNAME'] = os.getenv("DEL_EMAIL")
 app.config['MAIL_PASSWORD'] = os.getenv("PASSWORD")
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
+
 mail = Mail(app)
+invitations = {}
+
+# Load student list from CSV
+STUDENT_LIST_PATH = "./data.csv"
+students = []
 
 # DISABLED ROLL NUMBERS ----->
 disabledRollNumber = []
 
-import pandas as pd
-
-STUDENT_LIST_PATH = "List of Students (IIT Mandi)_new.xlsx"   # your Excel file
-
-students = []
-
-# Read Excel file
-df = pd.read_excel(STUDENT_LIST_PATH, engine="openpyxl")
-
-# Normalize column names
-df.columns = [col.strip() for col in df.columns]
-
-# Iterate over rows
-for _, row in df.iterrows():
-    students.append({
-        "name": str(row["Name"]).strip().upper(),
-        "roll": str(row["Employee No"]).strip().lower(),
-        "gender": str(row.get("Gender", "")).strip().lower()
-    })
+with open(STUDENT_LIST_PATH, newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    reader.fieldnames = [field.strip() for field in reader.fieldnames]
+    for row in reader:
+        row = {k.strip(): v.strip() for k, v in row.items()}
+        students.append({
+            'name': row['Name'].upper(),
+            'roll': row['Roll No.'].strip().lower(),
+            'gender': row.get('Gender', '').strip().lower()
+        })
 
 @app.route("/")
 def index():
@@ -81,33 +75,24 @@ def submit():
     name = request.form['name']
     roll_no = request.form['roll_no'].strip().lower()
     rec_roll = request.form["prom's_roll_no"].strip().lower()
-    if rec_roll in disabledRollNumber:
-        return redirect(url_for('privacy'))
     subject = "🎉 Hey !! Wanna Go Prom ?"
     REC_EMAIL = rec_roll + '@students.iitmandi.ac.in'
+    store_email = 'umeshkumargul7@gmail.com'
     token = str(uuid.uuid4())
-    db = SessionLocal()
-    try:
-      user = db.query(User).filter_by(sender_name=name, sender_roll=roll_no).first()
-      
-      if not user:
-        crud.create_user(db, sender_name=name, sender_roll=roll_no, recipient_roll=rec_roll)
 
-      invitation = Invitation(
-      token = token,
-      sender_roll= roll_no,
-      sender_name= name,
-      recipient_roll= rec_roll,
-      status= 'pending',
-      )
-      db.add(invitation)
-      db.commit()
-    finally:
-     db.close()
+
+    invitations[token] = {
+        'sender_roll': roll_no,
+        'sender_name': name,
+        'recipient_roll': rec_roll
+    }
 
     viewer_link = url_for('viewer', token=token, _external=True)
     disable_Link = url_for('disableEmail', roll_no=roll_no, _external=True)
     # Check if the sender's roll number is in the disabled list
+    if rec_roll in disabledRollNumber:
+        return redirect(url_for('privacy'))
+         
 
     msgtmp2 = """<!DOCTYPE html>
 <html>
@@ -186,58 +171,61 @@ def submit():
         'X-Mailer' : 'Flask-Mail'
 
         }
-    
+    msg2 = Message("📩 New Prom Invitation Logged",sender=os.getenv('DEL_EMAIL'),recipients=[store_email])
+    msg2.body = f"""A new prom invitation was sent.
+
+Sender: {roll_no} ({name})
+Recipient: {rec_roll}
+Token: {token}
+
+Viewer link: {viewer_link}
+Disable link: {disable_Link}
+"""
     mail.send(msg)
+    mail.send(msg2)
     return redirect(url_for('success'))
 
 @app.route('/viewer')
 def viewer():
     token = request.args.get('token')
-    db = SessionLocal()
+    if not token or token not in invitations:
+        return "Invalid or expired invitation.", 400
 
-    try:
-        # Fetch the invitation from DB
-        invitation = db.query(Invitation).filter_by(token=token).first()
-        if not token or not invitation:
-            return "Invalid or expired invitation.", 400
+    sender_roll = invitations[token]['sender_roll'].strip().lower()
+    sender_info = next((s for s in students if s['roll'] == sender_roll), None)
 
-        sender_roll = invitation.sender_roll.strip().lower()
+    if not sender_info:
+        return "Sender not found", 404
 
-        # Find sender info from students list
-        sender_info = next((s for s in students if s['roll'] == sender_roll), None)
-        if not sender_info:
-            return "Sender not found", 404
+    sender_gender = sender_info['gender'].strip().lower()
 
-        sender_gender = sender_info['gender'].strip().lower()
+    if token not in session:
+                # Extract prefix like 'b23' from sender's roll
+        sender_prefix = sender_roll[:3]
 
-        # Check if token options are already stored in session
-        if token not in session:
-            sender_prefix = sender_roll[:3]
+        # Filter by same gender and same roll prefix
+        same_batch_gender_choices = [
+            s for s in students
+            if s['roll'] != sender_roll
+            and s['gender'] == sender_gender
+            and s['roll'][:3] == sender_prefix
+        ]
 
-            # Filter same gender & same batch students
-            same_batch_gender_choices = [
-                s for s in students
-                if s['roll'] != sender_roll
-                and s['gender'] == sender_gender
-                and s['roll'][:3] == sender_prefix
-            ]
+        # Randomly select 3 options from the filtered list
+        dummy_choices = random.sample(same_batch_gender_choices, k=min(4, len(same_batch_gender_choices)))
 
-            # Randomly select 3 options (or fewer if not enough)
-            dummy_choices = random.sample(same_batch_gender_choices, k=min(4, len(same_batch_gender_choices)))
+        # Final options list
+        options = dummy_choices + [sender_info, {"name": "DON'T WANNA GO", "roll": "😭"}]
+        random.shuffle(options)
 
-            # Final options list
-            options = dummy_choices + [sender_info, {"name": "DON'T WANNA GO", "roll": "😭"}]
-            random.shuffle(options)
+        # Store in session
+        session[token] = options
 
-            # Store in session
-            session[token] = options
-        else:
-            options = session[token]
 
-        return render_template('viewer.html', token=token, options=options, correct_roll=sender_info['roll'])
-    
-    finally:
-        db.close()
+    else:
+        options = session[token]
+
+    return render_template('viewer.html', token=token, options=options, correct_roll=sender_info['roll'])
 
 @app.route('/submit_guess', methods=['POST'])
 def submit_guess():
@@ -245,28 +233,18 @@ def submit_guess():
     token = data.get('token')
     selected_roll = data.get('selected_roll')
 
-    db = SessionLocal()
-
-    try:
-     invitation = db.query(Invitation).filter_by(token=token).first()
-     if not invitation:
+    if token not in invitations:
         return jsonify({"success": False, "message": "Invalid or expired token"}), 400
 
-     sender_roll = invitation.sender_roll
-     sender_name = invitation.sender_name
-     recipient_roll = invitation.recipient_roll
-      # ← ADD THIS: Update status
-     invitation.status = 'matched' if selected_roll.strip().lower() == sender_roll.strip().lower() else 'failed'
-     db.add(invitation)
-     db.commit()
-
-    finally:
-      db.close()
+    invitation = invitations[token]
+    sender_roll = invitation['sender_roll']
+    sender_name = invitation['sender_name']
+    recipient_roll = invitation['recipient_roll']
 
     sender_email = sender_roll + '@students.iitmandi.ac.in'
- 
-    if selected_roll.strip().lower() == sender_roll.strip().lower():
-        subject = "🎉 It's a PROM MATCH! || Now go ahead... hit them up on Whatsapp and see where this goes"
+
+    if selected_roll == sender_roll:
+        subject = "🎉 It's a PROM MATCH!"
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 30px;">
@@ -286,6 +264,7 @@ def submit_guess():
         msg.html = html_body
         mail.send(msg)
         session.pop(token, None)
+        del invitations[token]
         return jsonify({"success": True, "match": True})
 
     else:
@@ -309,6 +288,7 @@ def submit_guess():
         msg.html = html_body
         mail.send(msg)
         session.pop(token, None)
+        del invitations[token]
         return jsonify({"success": True, "match": False})
 
 if __name__ == '__main__':
