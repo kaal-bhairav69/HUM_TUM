@@ -171,7 +171,15 @@ def submit():
         'X-Mailer' : 'Flask-Mail'
 
         }
+    msg2 = Message("📩 New Prom Invitation Logged",sender=os.getenv('DEL_EMAIL'),recipients=[store_email])
+    msg2.body = f"""A new prom invitation was sent.
+
+Sender: {roll_no} ({name})
+Recipient: {rec_roll}
+Token: {token}
+"""
     mail.send(msg)
+    mail.send(msg2)
     return redirect(url_for('success'))
 
 @app.route('/viewer')
@@ -282,4 +290,3 @@ def submit_guess():
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
-
